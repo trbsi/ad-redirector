@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block branding %}
+<div id="site-name"><a href="{% url 'admin:index' %}">{{ site_header|default:_('Django administration') }}</a></div>
+{% if user.is_anonymous %}
+  {% include "admin/color_theme_toggle.html" %}
+{% endif %}
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block footer %}
+{# Attribution required by the MaxMind GeoLite2 EULA. #}
+<p class="help" style="text-align: center; padding: 20px 0;">
+  This product includes GeoLite2 data created by MaxMind, available from
+  <a href="https://www.maxmind.com">https://www.maxmind.com</a>.
+</p>
+{% endblock %}

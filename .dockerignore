@@ -1,0 +1,10 @@
+.git
+.idea
+.venv
+.env
+db.sqlite3
+staticfiles
+**/__pycache__
+docker
+geoip/
+/.idea

@@ -1,0 +1,69 @@
+# Production only: HTTPS via nginx-proxy with Let's Encrypt certificates from acme-companion.
+# Not used for local development. On the server, run:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Requires DOMAIN and LETSENCRYPT_EMAIL in .env, and DNS for DOMAIN pointing at the server.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "3"
+
+services:
+  web:
+    # Only reachable through nginx-proxy.
+    ports: !reset []
+    expose:
+      - "8000"
+    environment:
+      VIRTUAL_HOST: ${DOMAIN:?set DOMAIN in .env}
+      VIRTUAL_PORT: "8000"
+      LETSENCRYPT_HOST: ${DOMAIN}
+      # Log the visitor IP that nginx-proxy appends to X-Forwarded-For.
+      USE_X_FORWARDED_FOR: "1"
+
+  nginx-proxy:
+    container_name: ad-redirector-nginx-proxy
+    image: nginxproxy/nginx-proxy:1.11
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      - ad-redirector-network
+    restart: unless-stopped
+    logging: *default-logging
+
+  acme-companion:
+    container_name: ad-redirector-acme-companion
+    image: nginxproxy/acme-companion:2.8
+    # Issues certificates and renews them automatically before they expire.
+    environment:
+      NGINX_PROXY_CONTAINER: ad-redirector-nginx-proxy
+      DEFAULT_EMAIL: ${LETSENCRYPT_EMAIL:?set LETSENCRYPT_EMAIL in .env}
+    volumes:
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - acme:/etc/acme.sh
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - ad-redirector-network
+    depends_on:
+      - nginx-proxy
+    restart: unless-stopped
+    logging: *default-logging
+
+volumes:
+  certs:
+    name: ad_redirector_certs
+  vhost:
+    name: ad_redirector_vhost
+  html:
+    name: ad_redirector_html
+  acme:
+    name: ad_redirector_acme

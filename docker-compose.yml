@@ -1,0 +1,136 @@
+# Applied to every service: keep at most 3 log files of 5 MB each.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "5m"
+    max-file: "3"
+
+services:
+  web:
+    container_name: ad-redirector-web
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+    networks:
+      - ad-redirector-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  celery-worker:
+    container_name: ad-redirector-celery-worker
+    build: .
+    command: celery -A config worker --loglevel=info
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      RUN_MIGRATIONS: "0"
+    volumes:
+      # Downloaded MaxMind database, kept across container rebuilds.
+      - geoip_data:/srv/geoip
+    networks:
+      - ad-redirector-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  celery-beat:
+    container_name: ad-redirector-celery-beat
+    build: .
+    # /app isn't writable by the app user, so keep the schedule state in /tmp.
+    command: celery -A config beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      RUN_MIGRATIONS: "0"
+    networks:
+      - ad-redirector-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+  redis:
+    container_name: ad-redirector-redis
+    image: redis:8-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - ad-redirector-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+    logging: *default-logging
+
+  db:
+    container_name: ad-redirector-db
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ad_redirector}
+      POSTGRES_USER: ${POSTGRES_USER:-ad_redirector}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - ad-redirector-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+    logging: *default-logging
+
+  pgadmin:
+    container_name: ad-redirector-pgadmin
+    image: dpage/pgadmin4:9
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?set PGADMIN_DEFAULT_PASSWORD in .env}
+    volumes:
+      # Pre-registers the db server on first start.
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - ad-redirector-network
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
+
+# Create once with:
+#   docker network create ad-redirector-network
+networks:
+  ad-redirector-network:
+    external: true
+
+volumes:
+  db_data:
+    name: ad_redirector_db_data
+  pgadmin_data:
+    name: ad_redirector_pgadmin_data
+  redis_data:
+    name: ad_redirector_redis_data
+  geoip_data:
+    name: ad_redirector_geoip_data
