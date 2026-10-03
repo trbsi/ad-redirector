@@ -13,7 +13,8 @@ from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from geoip2.errors import AddressNotFoundError
 
-from .models import Click, Link
+from .models import Click, Link, hash_ip
+from .services.clean_up_clicks import CleanUpClicksService
 from .services.download_geoip_database import DownloadGeoIPDatabaseService
 from .services.download_tor_exit_nodes import DownloadTorExitNodesService
 
@@ -56,6 +57,7 @@ class GoViewTests(TestCase):
         self.assertEqual(click.ip, "203.0.113.7")
         self.assertEqual(click.target_url, response["Location"])
         self.assertEqual(click.blocked_reason, "")
+        self.assertEqual(click.ip_hash, hash_ip("203.0.113.7"))
 
     def test_unknown_code_is_404(self):
         self.assertEqual(self.client.get("/go/nope/").status_code, 404)
@@ -220,6 +222,13 @@ class FilteringTests(TestCase):
         )
 
     @override_settings(TRAFFIC_FILTER_REPEAT_CLICK_HOURS=24)
+    def test_repeat_click_after_ip_cleared(self):
+        # The full IP is gone after CLICK_IP_RETENTION_DAYS; the hash still recognizes the visitor.
+        self.assertAllowed(self.visit())
+        Click.objects.update(ip=None)
+        self.assertEqual(self.visit()["Location"], "/")
+
+    @override_settings(TRAFFIC_FILTER_REPEAT_CLICK_HOURS=24)
     def test_repeat_click_after_window(self):
         Click.objects.create(
             link=self.link,
@@ -248,6 +257,7 @@ class FilteringTests(TestCase):
         response = self.visit()
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "location.replace")
+        self.assertContains(response, 'href="/privacy/"')
         self.assertFalse(Click.objects.exists())
 
         token = response.context["token"]
@@ -296,12 +306,83 @@ class DownloadTorExitNodesTests(SimpleTestCase):
         self.assertEqual(path.read_text(), "198.51.100.1\n")
 
 
+@override_settings(
+    CLICK_IP_RETENTION_DAYS=7, BLOCKED_CLICK_RETENTION_DAYS=30, CLICK_RETENTION_DAYS=365
+)
+class CleanUpClicksTests(TestCase):
+    def setUp(self):
+        self.link = Link.objects.create(code="abc123", visits=4)
+
+    def click(self, days_ago, blocked_reason=""):
+        return Click.objects.create(
+            link=self.link,
+            ip="203.0.113.7",
+            target_url="http://example.com",
+            blocked_reason=blocked_reason,
+            created_at=timezone.now() - timedelta(days=days_ago),
+        )
+
+    def test_applies_retention_periods(self):
+        recent = self.click(1)
+        old_ip = self.click(8)
+        self.click(31, blocked_reason="bot")
+        recent_blocked = self.click(29, blocked_reason="bot")
+        self.click(366)
+
+        result = CleanUpClicksService().execute()
+
+        self.assertEqual(result, {"ips_cleared": 2, "blocked_deleted": 1, "allowed_deleted": 1})
+        self.assertEqual(
+            set(Click.objects.values_list("id", flat=True)), {recent.id, old_ip.id, recent_blocked.id}
+        )
+        old_ip.refresh_from_db()
+        self.assertIsNone(old_ip.ip)
+        self.assertEqual(old_ip.ip_hash, hash_ip("203.0.113.7"))
+        recent.refresh_from_db()
+        self.assertEqual(recent.ip, "203.0.113.7")
+        self.link.refresh_from_db()
+        self.assertEqual(self.link.visits, 4)
+
+    @override_settings(
+        CLICK_IP_RETENTION_DAYS=0, BLOCKED_CLICK_RETENTION_DAYS=0, CLICK_RETENTION_DAYS=0
+    )
+    def test_zero_keeps_everything(self):
+        self.click(1000, blocked_reason="bot")
+        self.assertEqual(
+            CleanUpClicksService().execute(),
+            {"ips_cleared": 0, "blocked_deleted": 0, "allowed_deleted": 0},
+        )
+
+    def test_management_command(self):
+        self.click(400)
+        out = io.StringIO()
+        call_command("clean_up_clicks", stdout=out)
+        self.assertIn("deleted 0 blocked and 1 allowed clicks", out.getvalue())
+
+
 class HomeTests(TestCase):
     def test_homepage(self):
         response = self.client.get("/")
         self.assertContains(response, "Ad Redirector")
         self.assertContains(response, "GeoLite2 data created by MaxMind")
+        self.assertContains(response, 'href="/privacy/"')
         self.assertNotContains(response, "privateplace")
+
+    @override_settings(
+        PRIVACY_OPERATOR_NAME="Example Ltd",
+        PRIVACY_CONTACT_EMAIL="privacy@example.com",
+        CLICK_IP_RETENTION_DAYS=7,
+        BLOCKED_CLICK_RETENTION_DAYS=30,
+        CLICK_RETENTION_DAYS=0,
+    )
+    def test_privacy_page(self):
+        response = self.client.get("/privacy/")
+        self.assertContains(response, "Example Ltd")
+        self.assertContains(response, "mailto:privacy@example.com")
+        self.assertContains(response, "deleted after 7 days")
+        self.assertContains(response, "deleted after 30 days")
+        self.assertContains(response, "not deleted automatically")
+        self.assertContains(response, "GeoLite2 data created by MaxMind")
 
 
 class AdminTests(TestCase):

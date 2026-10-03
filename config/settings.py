@@ -131,6 +131,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "src.redirect.tasks.download_tor_exit_nodes",
         "schedule": crontab(minute=15),
     },
+    "clean-up-clicks": {
+        "task": "src.redirect.tasks.clean_up_clicks",
+        "schedule": crontab(hour=4, minute=0),
+    },
 }
 
 # MaxMind GeoLite2 download (account ID and license key from maxmind.com → Manage License Keys).
@@ -161,3 +165,13 @@ TRAFFIC_FILTER_EXTRA_BLOCKED_ASNS = frozenset(
 TRAFFIC_FILTER_REPEAT_CLICK_HOURS = int(os.environ.get("TRAFFIC_FILTER_REPEAT_CLICK_HOURS", "24"))
 # JavaScript check page before the first redirect.
 TRAFFIC_FILTER_CHALLENGE = env_bool("TRAFFIC_FILTER_CHALLENGE", True)
+
+# Data retention (GDPR), applied daily by the clean_up_clicks task. 0 = keep forever.
+# Full visitor IPs are cleared after this many days; a keyed hash stays for the repeat-click check.
+CLICK_IP_RETENTION_DAYS = int(os.environ.get("CLICK_IP_RETENTION_DAYS", "7"))
+BLOCKED_CLICK_RETENTION_DAYS = int(os.environ.get("BLOCKED_CLICK_RETENTION_DAYS", "30"))
+CLICK_RETENTION_DAYS = int(os.environ.get("CLICK_RETENTION_DAYS", "365"))
+
+# Shown on the privacy page (/privacy/).
+PRIVACY_OPERATOR_NAME = os.environ.get("PRIVACY_OPERATOR_NAME", "")
+PRIVACY_CONTACT_EMAIL = os.environ.get("PRIVACY_CONTACT_EMAIL", "")

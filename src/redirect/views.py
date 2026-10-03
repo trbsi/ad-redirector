@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.views.decorators.cache import never_cache
@@ -10,6 +11,23 @@ from .services.redirect import RedirectService
 @require_GET
 def home(request):
     return render(request, "redirect/home.html")
+
+
+@require_GET
+def privacy(request):
+    return render(
+        request,
+        "redirect/privacy.html",
+        {
+            "operator_name": settings.PRIVACY_OPERATOR_NAME,
+            "contact_email": settings.PRIVACY_CONTACT_EMAIL,
+            "ip_retention_days": settings.CLICK_IP_RETENTION_DAYS,
+            "blocked_retention_days": settings.BLOCKED_CLICK_RETENTION_DAYS,
+            "retention_days": settings.CLICK_RETENTION_DAYS,
+            "cookie_name": ChallengeService.cookie_name,
+            "cookie_days": ChallengeService.cookie_max_age // (24 * 60 * 60),
+        },
+    )
 
 
 @never_cache

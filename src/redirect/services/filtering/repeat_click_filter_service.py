@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
 
-from ...models import Click
+from ...models import Click, hash_ip
 
 
 class RepeatClickFilterService:
@@ -20,7 +20,7 @@ class RepeatClickFilterService:
             return False
         return Click.objects.filter(
             link=self.visit.link,
-            ip=self.visit.ip,
+            ip_hash=hash_ip(self.visit.ip),
             blocked_reason="",
             created_at__gte=timezone.now() - timedelta(hours=hours),
         ).exists()

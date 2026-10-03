@@ -23,6 +23,10 @@ Set in `.env` (see [`.env.example`](../.env.example)):
 | `TRAFFIC_FILTER_EXTRA_BLOCKED_ASNS` | empty | ASNs to block on top of the built-in hosting provider list |
 | `TRAFFIC_FILTER_REPEAT_CLICK_HOURS` | `24` | Block repeat visits from one IP to one link within this many hours; `0` = off |
 | `TRAFFIC_FILTER_CHALLENGE` | `1` | JavaScript check page before redirecting; `0` = off |
+| `CLICK_IP_RETENTION_DAYS` | `7` | Days before full visitor IPs are cleared from clicks (the IP hash stays); `0` = keep |
+| `BLOCKED_CLICK_RETENTION_DAYS` | `30` | Days before blocked clicks are deleted; `0` = keep |
+| `CLICK_RETENTION_DAYS` | `365` | Days before successful clicks are deleted (link visit counts stay); `0` = keep |
+| `PRIVACY_OPERATOR_NAME` / `PRIVACY_CONTACT_EMAIL` | empty | Who runs the site and how to reach them, shown on `/privacy/`. Set both before going live |
 | `DOMAIN` / `LETSENCRYPT_EMAIL` | — (required in production) | Public domain and Let's Encrypt contact email for `docker-compose.prod.yml` |
 | `WEB_PORT` | `8000` | Local only: host port the `web` container is published on |
 | `USE_X_FORWARDED_FOR` | `0` | Log the last `X-Forwarded-For` entry, the address your proxy saw. Enable only behind exactly one reverse proxy you control (set automatically in production), otherwise visitors can fake their IP |

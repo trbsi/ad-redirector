@@ -1,0 +1,56 @@
+{% extends "redirect/base.html" %}
+
+{% block title %}Privacy · Ad Redirector{% endblock %}
+
+{% block content %}
+<div class="card text">
+  <h1>Privacy</h1>
+  <p>This page explains what happens to your data when you open a link on this website.</p>
+
+  <h2>Who is responsible</h2>
+  <p>
+    {% if operator_name %}{{ operator_name }}{% else %}The operator of this website{% endif %}
+    is responsible for the data described here.
+    {% if contact_email %}Contact: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endif %}
+  </p>
+
+  <h2>What is recorded</h2>
+  <p>When you open a link, this website records:</p>
+  <ul>
+    <li>your IP address,</li>
+    <li>the date and time,</li>
+    <li>which link you opened and where you were sent,</li>
+    <li>whether the visit was treated as automated or low-quality traffic, and why.</li>
+  </ul>
+  <p>To recognize automated traffic, the website also checks your browser's identification (User-Agent) and language headers, and looks up the country and network of your IP address. These are not stored. The lookup uses a database on this website's own server; your IP address is not sent to anyone for it.</p>
+
+  <h2>Why, and on what basis</h2>
+  <p>The data is used to count visits, to keep bots and fraudulent traffic away from advertisers, and to keep the service secure. The legal basis is the legitimate interest in preventing fraud and protecting the service (Article 6(1)(f) GDPR).</p>
+
+  <h2>How long it is kept</h2>
+  <ul>
+    <li>
+      Your full IP address is
+      {% if ip_retention_days %}deleted after {{ ip_retention_days }} day{{ ip_retention_days|pluralize }}{% else %}not deleted automatically{% endif %}.
+      After that, only a one-way coded version (a keyed hash) is kept, so that repeated visits can still be recognized without storing your address.
+    </li>
+    <li>
+      Records of visits treated as automated traffic are
+      {% if blocked_retention_days %}deleted after {{ blocked_retention_days }} day{{ blocked_retention_days|pluralize }}{% else %}not deleted automatically{% endif %}.
+    </li>
+    <li>
+      Records of other visits are
+      {% if retention_days %}deleted after {{ retention_days }} day{{ retention_days|pluralize }}{% else %}not deleted automatically{% endif %}.
+    </li>
+  </ul>
+
+  <h2>Cookie</h2>
+  <p>Before forwarding you, the website may show a short "Redirecting…" page that sets one cookie (<code>{{ cookie_name }}</code>). It only confirms that your browser passed an automated-traffic check, contains no personal data, is not used for tracking, and expires after {{ cookie_days }} days.</p>
+
+  <h2>Who else receives data</h2>
+  <p>After the check you are forwarded to the advertising network JuicyAds. From then on, their own privacy policy applies. The company hosting this website processes the data described here on its behalf.</p>
+
+  <h2>Your rights</h2>
+  <p>You can ask for access to, correction or deletion of your data, ask for its processing to be restricted, and object to it. You can also complain to a data protection supervisory authority.{% if contact_email %} To make a request, write to <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endif %}</p>
+</div>
+{% endblock %}

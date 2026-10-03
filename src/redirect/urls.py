@@ -6,5 +6,6 @@ app_name = "redirect"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("privacy/", views.privacy, name="privacy"),
     path("go/<str:code>/", views.go, name="go"),
 ]
