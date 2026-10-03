@@ -12,15 +12,13 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
 
+# Only the dependencies are installed in the image. The project code is mounted at /app
+# by docker-compose.yml, so code changes don't need a rebuild; only dependency changes do.
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --only main --no-root && rm -rf /root/.cache
 
-COPY . .
-
-RUN DJANGO_SECRET_KEY=build-only python manage.py collectstatic --noinput \
-    && useradd --system --no-create-home app \
-    && mkdir -p /srv/geoip && chown app /srv/geoip \
-    && chmod +x docker-entrypoint.sh
+RUN useradd --system --no-create-home app \
+    && mkdir -p /srv/geoip /srv/static && chown app /srv/geoip /srv/static
 
 USER app
 EXPOSE 8000

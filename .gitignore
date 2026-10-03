@@ -4,3 +4,5 @@ db.sqlite3
 staticfiles/
 __pycache__/
 geoip/
+credentials.txt
+.idea

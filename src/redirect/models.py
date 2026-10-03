@@ -45,10 +45,13 @@ class Click(models.Model):
     link = models.ForeignKey(Link, on_delete=models.CASCADE, related_name="clicks")
     ip = models.GenericIPAddressField(null=True, blank=True)
     target_url = models.URLField(max_length=500)
+    # Empty when the visit was sent to the link's target; otherwise the filter that blocked it.
+    blocked_reason = models.CharField(max_length=32, blank=True, default="")
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [models.Index(fields=["link", "ip", "created_at"])]
 
     def __str__(self):
         return f"{self.link} from {self.ip or 'unknown'}"

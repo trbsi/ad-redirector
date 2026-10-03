@@ -1,0 +1,8 @@
+# How it works
+
+- **Homepage:** `/` shows a short page explaining the service, with the MaxMind attribution. It doesn't link to the admin.
+- **Managing links:** log in to the Django admin at `/privateplace/` and add a link under *Links*. Codes must be lowercase letters and digits (e.g. `3484x2z2w2a4u4q2r28463o5111`) and must be unique. The list shows each link's visit count and its direct URL.
+- **Redirecting:** `GET /go/<code>/` runs the [traffic filters](traffic-filtering.md). A visit that passes increments the link's visit count, records a `Click`, and gets a `302` to the JuicyAds URL. Unknown codes return `404`. Responses are sent with no-cache headers.
+- **GeoIP databases:** every day at 03:00 UTC, Celery beat queues `download_geoip_database`, which downloads each edition in `MAXMIND_EDITION_IDS` (GeoLite2-Country and GeoLite2-ASN by default). It checks MaxMind's published SHA-256 first and only downloads when a new release is out, verifies the archive, and atomically replaces `<edition>.mmdb`. Run it immediately with `python manage.py download_geoip_database` (locally: `poetry run python manage.py download_geoip_database`, saves to `geoip/`; in Docker: `docker compose exec celery-worker python manage.py download_geoip_database`). The GeoLite2 license requires the attribution shown in the admin footer.
+- **Tor exit nodes:** every hour, `download_tor_exit_nodes` saves the Tor Project's exit node list to `tor-exit-nodes.txt` next to the MaxMind databases. Run it by hand with `python manage.py download_tor_exit_nodes`.
+- **Clicks:** browse and filter them under *Clicks* in the admin (read-only). Filter by *blocked reason* to see what each traffic filter blocked.

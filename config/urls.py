@@ -5,6 +5,6 @@ admin.site.site_header = "Ad Redirector"
 admin.site.site_title = "Ad Redirector"
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path("privateplace/", admin.site.urls),
     path("", include("src.redirect.urls")),
 ]

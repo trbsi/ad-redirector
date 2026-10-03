@@ -24,8 +24,8 @@ class LinkAdmin(admin.ModelAdmin):
 
 @admin.register(Click)
 class ClickAdmin(admin.ModelAdmin):
-    list_display = ["created_at", "link", "ip"]
-    list_filter = ["link"]
+    list_display = ["created_at", "link", "ip", "blocked_reason"]
+    list_filter = ["blocked_reason", "link"]
     list_select_related = ["link"]
     search_fields = ["link__code", "ip"]
     date_hierarchy = "created_at"

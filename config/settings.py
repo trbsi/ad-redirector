@@ -10,6 +10,10 @@ def env_bool(name, default=False):
     return os.environ.get(name, str(default)).lower() in {"1", "true", "yes", "on"}
 
 
+def env_list(name, default=""):
+    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+
+
 DEBUG = env_bool("DJANGO_DEBUG")
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or (
     "insecure-dev-key" if DEBUG else None
@@ -17,7 +21,7 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY") or (
 if not SECRET_KEY:
     raise RuntimeError("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is off")
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,adredirector.loc").split(",")
 CSRF_TRUSTED_ORIGINS = [
     o for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o
 ]
@@ -123,10 +127,37 @@ CELERY_BEAT_SCHEDULE = {
         "task": "src.redirect.tasks.download_geoip_database",
         "schedule": crontab(hour=3, minute=0),
     },
+    "download-tor-exit-nodes": {
+        "task": "src.redirect.tasks.download_tor_exit_nodes",
+        "schedule": crontab(minute=15),
+    },
 }
 
 # MaxMind GeoLite2 download (account ID and license key from maxmind.com → Manage License Keys).
 MAXMIND_ACCOUNT_ID = os.environ.get("MAXMIND_ACCOUNT_ID", "")
 MAXMIND_LICENSE_KEY = os.environ.get("MAXMIND_LICENSE_KEY", "")
-MAXMIND_EDITION_ID = os.environ.get("MAXMIND_EDITION_ID", "GeoLite2-City")
+# Databases to download. Add GeoIP2-Anonymous-IP (paid) to enable the VPN/proxy filter.
+MAXMIND_EDITION_IDS = env_list("MAXMIND_EDITION_IDS", "GeoLite2-Country,GeoLite2-ASN")
 MAXMIND_DATABASE_DIR = Path(os.environ.get("MAXMIND_DATABASE_DIR", BASE_DIR / "geoip"))
+TOR_EXIT_NODES_PATH = MAXMIND_DATABASE_DIR / "tor-exit-nodes.txt"
+
+# Traffic filtering for /go/<code>/ (see src/redirect/services/filtering).
+# Log-only: record what would be blocked in Click.blocked_reason, but let every visit through.
+TRAFFIC_FILTER_LOG_ONLY = env_bool("TRAFFIC_FILTER_LOG_ONLY")
+# Where blocked visits are sent.
+TRAFFIC_FILTER_BLOCKED_URL = os.environ.get("TRAFFIC_FILTER_BLOCKED_URL", "/")
+# ISO country codes, e.g. "US,GB,DE". Empty allowed list = all countries allowed.
+TRAFFIC_FILTER_ALLOWED_COUNTRIES = frozenset(
+    c.upper() for c in env_list("TRAFFIC_FILTER_ALLOWED_COUNTRIES")
+)
+TRAFFIC_FILTER_BLOCKED_COUNTRIES = frozenset(
+    c.upper() for c in env_list("TRAFFIC_FILTER_BLOCKED_COUNTRIES")
+)
+# ASNs to block on top of the built-in hosting provider list.
+TRAFFIC_FILTER_EXTRA_BLOCKED_ASNS = frozenset(
+    int(asn) for asn in env_list("TRAFFIC_FILTER_EXTRA_BLOCKED_ASNS")
+)
+# Block an IP that already went through the same link within this many hours (0 = off).
+TRAFFIC_FILTER_REPEAT_CLICK_HOURS = int(os.environ.get("TRAFFIC_FILTER_REPEAT_CLICK_HOURS", "24"))
+# JavaScript check page before the first redirect.
+TRAFFIC_FILTER_CHALLENGE = env_bool("TRAFFIC_FILTER_CHALLENGE", True)

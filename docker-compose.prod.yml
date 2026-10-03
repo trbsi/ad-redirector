@@ -11,6 +11,8 @@ x-logging: &default-logging
 
 services:
   web:
+    # Use the image's default command (gunicorn) instead of runserver.
+    command: !reset null
     # Only reachable through nginx-proxy.
     ports: !reset []
     expose:
@@ -21,6 +23,13 @@ services:
       LETSENCRYPT_HOST: ${DOMAIN}
       # Log the visitor IP that nginx-proxy appends to X-Forwarded-For.
       USE_X_FORWARDED_FOR: "1"
+
+  # No auto-restart on file changes in production; ./make.sh deploy restarts them.
+  celery-worker:
+    command: celery -A config worker --loglevel=info
+
+  celery-beat:
+    command: celery -A config beat --loglevel=info --schedule /tmp/celerybeat-schedule
 
   nginx-proxy:
     container_name: ad-redirector-nginx-proxy

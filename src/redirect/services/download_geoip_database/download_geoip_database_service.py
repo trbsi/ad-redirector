@@ -16,8 +16,8 @@ DOWNLOAD_URL = "https://download.maxmind.com/geoip/databases/{edition}/download?
 class DownloadGeoIPDatabaseService:
     """Installs the latest MaxMind GeoLite2 database if it has changed since the last run."""
 
-    def __init__(self):
-        self.edition = settings.MAXMIND_EDITION_ID
+    def __init__(self, edition):
+        self.edition = edition
         self.directory = Path(settings.MAXMIND_DATABASE_DIR)
         self.database_path = self.directory / f"{self.edition}.mmdb"
         self.checksum_path = self.directory / f"{self.edition}.tar.gz.sha256"

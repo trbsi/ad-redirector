@@ -8,3 +8,5 @@ staticfiles
 docker
 geoip/
 /.idea
+credentials.txt
+make.sh

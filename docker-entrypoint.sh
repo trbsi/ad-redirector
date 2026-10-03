@@ -4,6 +4,8 @@ set -e
 # Only the web service runs setup; celery-worker/celery-beat set RUN_MIGRATIONS=0.
 if [ "${RUN_MIGRATIONS:-1}" = "1" ]; then
     python manage.py migrate --noinput
+    # The code is mounted, not built into the image, so static files are collected on start.
+    python manage.py collectstatic --noinput --verbosity 0
 
     # Create the admin account on first start if DJANGO_SUPERUSER_* is set.
     if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
